@@ -24,7 +24,7 @@ app.use(morgan(':method :url :status :res[content-length] - :response-time ms :b
 //     name: "Ada Lovelace",
 //     number: "39-44-5323523"
 //   },
-//   {
+//   {  
 //     id: 3,
 //     name: "Dan Abramov",
 //     number: "12-43-234345"
@@ -36,25 +36,32 @@ app.use(morgan(':method :url :status :res[content-length] - :response-time ms :b
 //   }
 // ]
 
-app.get('/info', (req, res) =>
+app.get('/info', (req, res, next) =>
 {
-  res.send(
-    `
-      <p>Phonebook has info for ${persons.length} people</p>
-      <p>${new Date}</p>
-    `
-  )
+  Person.count({})
+    .then(result =>
+    {
+      res.send(
+        `
+        <p>Phonebook has info for ${result} people</p>
+        <p>${new Date}</p>
+        `
+      )
+    })
+    .catch(error => next(error))
 })
 
-app.get('/api/persons', (req, res) =>
+app.get('/api/persons', (req, res, next) =>
 {
-  Person.find({}).then(persons =>
+  Person.find({})
+    .then(persons =>
     {
       res.json(persons)
     })
+    .catch(error => next(error))
 })
 
-app.post('/api/persons/', (req, res) =>
+app.post('/api/persons/', (req, res, next) =>
 {
   const body = req.body
 
@@ -82,34 +89,86 @@ app.post('/api/persons/', (req, res) =>
       number: body.number,
     })
 
-  newPerson.save().then(savePerson =>
+  newPerson.save()
+    .then(savePerson =>
     {
       res.json(savePerson)
-    }
-  )
+    })
+    .catch(error => next(error))
 })
 
-app.get('/api/persons/:id', (req, res) =>
+app.get('/api/persons/:id', (req, res, next) =>
 {
   const id = req.params.id
   
-  Person.find({ _id: id }).then( person =>
+  Person.findById(id)
+    .then(person =>
     {
       res.json(person)
-    }
-  )
+    })
+    .catch(error => next(error))
 })
 
-app.delete('/api/persons/:id', (req, res) =>
+app.put('/api/persons/:id', (req, res, next) =>
+{
+  const body = req.body
+  const id = req.params.id
+
+  if (!body.number)
+  {
+    return res.status(400).json(
+      {
+        error: 'number is missing'
+      }
+    )
+  }
+
+  const person = 
+  {
+    name: body.name,
+    number: body.number
+  }
+
+  console.log(person)
+
+  Person.findByIdAndUpdate(id, person, { new: true, runValidators: true, context: 'query' })
+    .then(updatedPerson =>
+    {
+      res.json(updatedPerson)
+    })
+    .catch(error => next(error))
+})
+
+app.delete('/api/persons/:id', (req, res, next) =>
 {
   const id = req.params.id
 
-  Person.deleteOne({ _id: id }).then(result =>
+  Person.findByIdAndDelete(id)
+    .then(() =>
     {
-      res.json(result)
+      res.status(204).end()
     })
+    .catch(error => next(error))
 
 })
+
+const errorHandler = (err, req, res, next) =>
+{
+  console.log(err)
+
+  if (err.name === 'CastError' && err.kind === 'ObjectId')
+  {
+    return res.status(400).send({ error: 'error id' })
+  }
+  else if (err.name === 'ValidationError')
+  {
+    return res.status(400).send({ error: err.message })
+  }
+
+  next(err)
+}
+
+app.use(errorHandler)
 
 const PORT = process.env.PORT || 3001
 

@@ -54,7 +54,7 @@ const App = () => {
           })
           .catch(error =>
           {
-            setMessage(`Information of  ${findPerson.name} has already been removed from server`)
+            setMessage(error.response.data.error)
             setMessageType('error')
             setTimeout(() => setMessage(null), 3000)
           })
@@ -75,7 +75,7 @@ const App = () => {
       })
       .catch(error =>
       {
-        setMessage(`Adding ${personObject.name} failed`)
+        setMessage(error.response.data.error)
         setMessageType('error')
         setTimeout(() => setMessage(null), 3000)
       })
